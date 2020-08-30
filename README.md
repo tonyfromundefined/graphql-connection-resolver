@@ -1,4 +1,7 @@
 # 🔗 GraphQL Connection Resolver
+![](https://img.shields.io/npm/v/graphql-connection-resolver)
+![](https://img.shields.io/bundlephobia/min/graphql-connection-resolver)
+
 Helps to easily implement the relay connection specification (inspired by [Nexus.js Connection Plugin](https://nexus.js.org/docs/plugin-connection))
 
 ## What is the `Connection`?
