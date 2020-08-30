@@ -1,0 +1,24 @@
+{
+  "name": "graphql-connection-resolver",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Helps to easily implement the relay connection specification (inspired by the nexus connection plugin)",
+  "keywords": [
+    "connection",
+    "graphql",
+    "relay"
+  ],
+  "repository": "https://github.com/tonyfromundefined/graphql-connection-resolver",
+  "license": "MIT",
+  "author": "Tony Won <jeehyukwon@gmail.com>",
+  "main": "lib/index.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "buffer": "^5.6.0"
+  },
+  "devDependencies": {
+    "typescript": "^4.0.2"
+  }
+}
