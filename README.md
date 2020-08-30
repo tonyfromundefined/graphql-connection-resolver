@@ -84,7 +84,10 @@ const resolveMessagesConnection = createConnectionResolver<
   async nodes(args) {
     /**
      * returns a list of the model via `args.first`, `args.after`,
-     * `args.last`, `args.before` and additional args
+     * `args.last`, `args.before` and additional args.
+     * You must request one more than given by first and last.
+     * Inside the library, if nodes return the same number as the given number, there is no next page,
+     * and if nodes return more than the given number, the next page is considered to exist.
      */
 
     return [
@@ -122,46 +125,60 @@ export const ChatRoom = {
 ```
 
 ## Note
-This library was created assuming that all fields in `Connection`, `Edge`, and `PageInfo` are required.
+- This library was created assuming that all fields in `Connection`, `Edge`, and `PageInfo` are required.
 
-```graphql
-type ChatMessageConnection {
-  edges: [ChatMessageEdge!]!
-  pageInfo: PageInfo!
-}
+  ```graphql
+  type ChatMessageConnection {
+    edges: [ChatMessageEdge!]!
+    pageInfo: PageInfo!
+  }
 
-type ChatMessageEdge {
-  node: ChatMessage!
-  cursor: String!
-}
+  type ChatMessageEdge {
+    node: ChatMessage!
+    cursor: String!
+  }
 
-type PageInfo {
-  hasPreviousPage: Boolean!
-  hasNextPage: Boolean!
-  startCursor: String!
-  endCursor: String!
-}
-```
+  type PageInfo {
+    hasPreviousPage: Boolean!
+    hasNextPage: Boolean!
+    startCursor: String!
+    endCursor: String!
+  }
+  ```
 
-```typescript
-export interface PageInfo {
-  hasPreviousPage: boolean
-  hasNextPage: boolean
-  startCursor: string
-  endCursor: string
-}
+  ```typescript
+  export interface PageInfo {
+    hasPreviousPage: boolean
+    hasNextPage: boolean
+    startCursor: string
+    endCursor: string
+  }
 
-export interface Edge<Node> {
-  cursor: string
-  node: Node
-}
+  export interface Edge<Node> {
+    cursor: string
+    node: Node
+  }
 
-export interface Connection<Node> {
-  edges: Array<Edge<Node>>
-  nodes: Array<Node>
-  pageInfo: PageInfo
-}
-```
+  export interface Connection<Node> {
+    edges: Array<Edge<Node>>
+    nodes: Array<Node>
+    pageInfo: PageInfo
+  }
+  ```
+- You must request one more than given by first and last. Inside the library, if nodes return the same number as the given number, there is no next page, and if nodes return more than the given number, the next page is considered to exist.
+
+  ```typescript
+  createConnectionResolver({
+    async nodes(args) {
+      const items = await fetchItems({
+        /* ... */,
+        limit: args.first + 1,
+      })
+
+      /* ... */
+    }
+  })
+  ```
 
 ## References
 - [Nexus.js Connection Plugin](https://nexus.js.org/docs/plugin-connection)
