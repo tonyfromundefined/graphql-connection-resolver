@@ -2,7 +2,7 @@
   "name": "graphql-connection-resolver",
   "version": "0.1.0",
   "private": false,
-  "description": "Helps to easily implement the relay connection specification (inspired by the nexus connection plugin)",
+  "description": "Helps to easily implement the relay connection specification (inspired by Nexus.js Connection Plugin)",
   "keywords": [
     "connection",
     "graphql",
