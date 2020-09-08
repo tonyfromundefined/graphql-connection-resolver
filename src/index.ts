@@ -1,21 +1,21 @@
 import { Buffer } from 'buffer/'
 
-export interface PageInfo {
-  hasPreviousPage: boolean
-  hasNextPage: boolean
-  startCursor: string
-  endCursor: string
-}
-
-export interface Edge<Node> {
-  cursor: string
-  node: Node
-}
+type ResolverTypeWrapper<T> = Promise<T> | T
 
 export interface Connection<Node> {
   edges: Array<Edge<Node>>
   nodes: Array<Node>
   pageInfo: PageInfo
+}
+export interface Edge<Node> {
+  cursor: string
+  node: Node
+}
+export interface PageInfo {
+  hasPreviousPage: boolean
+  hasNextPage: boolean
+  startCursor: string | null
+  endCursor: string | null
 }
 
 type ConnectionArgs = {
@@ -25,109 +25,115 @@ type ConnectionArgs = {
   before?: string | null
 }
 
-type ValidatedConnectionArgs =
-  | {
-      first: number
-      after?: string | null
-    }
-  | {
-      last: number
-      before?: string | null
-    }
-
-interface CreateConnectionResolverOptions<Node, AdditionalArgs extends {}> {
+export function connection<Parent, Args extends ConnectionArgs, Context, Node>({
+  cursorFromNode: getCursorFromNode,
+  nodes: getNodes,
+}: {
   cursorFromNode: (node: Node) => string
-  nodes: (args: ValidatedConnectionArgs & AdditionalArgs) => Promise<Node[]>
-  onError?: (error: Error) => void
-}
-export function createConnectionResolver<Node, AdditionalArgs extends {} = {}>({
-  cursorFromNode,
-  nodes,
-  onError,
-}: CreateConnectionResolverOptions<Node, AdditionalArgs>): (
-  args: ConnectionArgs & AdditionalArgs
-) => Promise<Connection<Node> | null> {
-  return async function connectionResolver(args) {
+  nodes: (parent: Parent, args: Args, context: Context) => Promise<Node[]>
+}): (
+  parent: Parent,
+  args: Args,
+  context: Context
+) => Promise<Connection<ResolverTypeWrapper<Node>>> {
+  return async (parent, args, context) => {
     if (args.first && args.last) {
-      onError?.(
-        new Error('args.first and args.last cannot be used at the same time')
+      throw new Error(
+        'args.first and args.last cannot be used at the same time'
       )
-      return null
     }
 
-    let _nodes: Node[] = []
+    let nodes: Node[] = []
 
-    try {
-      if (args.first) {
-        _nodes = await nodes({
+    if (args.first) {
+      nodes = await getNodes(
+        parent,
+        {
           ...args,
           first: args.first,
           after: args.after && decodeCursor(args.after),
-        })
-      }
-      if (args.last) {
-        _nodes = await nodes({
+        },
+        context
+      )
+    }
+    if (args.last) {
+      nodes = await getNodes(
+        parent,
+        {
           ...args,
           last: args.last,
           before: args.before && decodeCursor(args.before),
-        })
-      }
-    } catch (error) {
-      onError?.(error)
-      return null
-    }
-
-    if (_nodes.length === 0) {
-      return null
+        },
+        context
+      )
     }
 
     if (args.first) {
-      const hasNextPage = _nodes.length > args.first
+      const hasNextPage = nodes.length > args.first
       const hasPreviousPage = !!args.after
 
-      _nodes = _nodes.filter((_, i) => i < args.first!)
+      nodes = nodes.filter((_, i) => i < args.first!)
+
+      const startCursor =
+        nodes.length > 0 ? encodeCursor(getCursorFromNode(nodes[0])) : null
+      const endCursor =
+        nodes.length > 0 ? encodeCursor(getCursorFromNode(last(nodes)!)) : null
 
       const pageInfo: PageInfo = {
         hasNextPage,
         hasPreviousPage,
-        startCursor: encodeCursor(cursorFromNode(_nodes[0])),
-        endCursor: encodeCursor(cursorFromNode(last(_nodes)!)),
+        startCursor,
+        endCursor,
       }
 
       return {
-        edges: _nodes.map((node) => ({
+        edges: nodes.map((node) => ({
           node,
-          cursor: encodeCursor(cursorFromNode(node)),
+          cursor: encodeCursor(getCursorFromNode(node)),
         })),
-        nodes: _nodes,
+        nodes,
         pageInfo,
       }
     }
 
     if (args.last) {
       const hasNextPage = !!args.before
-      const hasPreviousPage = _nodes.length > args.last
+      const hasPreviousPage = nodes.length > args.last
 
-      _nodes = _nodes.filter((_, i) => i < args.last!)
+      nodes = nodes.filter((_, i) => i < args.last!)
+
+      const startCursor =
+        nodes.length > 0 ? encodeCursor(getCursorFromNode(nodes[0])) : null
+      const endCursor =
+        nodes.length > 0 ? encodeCursor(getCursorFromNode(last(nodes)!)) : null
 
       const pageInfo: PageInfo = {
         hasNextPage,
         hasPreviousPage,
-        startCursor: encodeCursor(cursorFromNode(_nodes[0])),
-        endCursor: encodeCursor(cursorFromNode(last(_nodes)!)),
+        startCursor,
+        endCursor,
       }
 
       return {
-        edges: _nodes.map((node) => ({
+        edges: nodes.map((node) => ({
           node,
-          cursor: encodeCursor(cursorFromNode(node)),
+          cursor: encodeCursor(getCursorFromNode(node)),
         })),
-        nodes: _nodes,
+        nodes,
         pageInfo,
       }
     }
 
-    return null
+    return {
+      edges: [],
+      nodes: [],
+      pageInfo: {
+        hasNextPage: false,
+        hasPreviousPage: false,
+        startCursor: null,
+        endCursor: null,
+      },
+    }
   }
 }
 

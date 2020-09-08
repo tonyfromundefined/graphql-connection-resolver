@@ -31,7 +31,7 @@ type ChatRoom {
     last: Int
     before: Int
     after: Int
-  ): ChatMessageConnection
+  ): ChatMessageConnection!
 }
 
 type ChatMessage {
@@ -52,123 +52,47 @@ type ChatMessageEdge {
 type PageInfo {
   hasPreviousPage: Boolean!
   hasNextPage: Boolean!
-  startCursor: String!
-  endCursor: String!
+  startCursor: String
+  endCursor: String
 }
 ```
 
 ### Resolver
 
 ```typescript
-export interface ModelChatMessage {
-  id: string
-  createdAt: Date
-}
-```
-```typescript
-import { createConnectionResolver } from 'graphql-connection-resolver'
-import { ModelChatMessage } from '../models'
-
-const resolveMessagesConnection = createConnectionResolver<
-  /**
-   * The first type parameter is a model type.
-   */
-  ModelChatMessage,
-
-  /**
-   * The second type parameter is an additional arguments type.
-   * If you need additional arguments to run the resolver, put them here.
-   */ 
-  { chatRoom: string }
->({
-  async nodes(args) {
-    /**
-     * returns a list of the model via `args.first`, `args.after`,
-     * `args.last`, `args.before` and additional args.
-     * You must request one more than given by first and last.
-     * Inside the library, if nodes return the same number as the given number, there is no next page,
-     * and if nodes return more than the given number, the next page is considered to exist.
-     */
-
-    return [
-      /* ... */
-    ]
-  },
-  /**
-   * Extract a string to be used as a cursor from node.
-   * It automatically performs base64 encoding and decoding inside,
-   * so just return plain text.
-   */ 
-  cursorFromNode(node) {
-    return node.createdAt.toISOString()
-  },
-  onError(e) {
-    /**
-     * If an error occurs, generated resolver function returns `Promise.resolve(null)` and the given `onError` function is executed.
-     * so, depending on the error received, you can throw a custom error here.
-     */
-    throw new ApolloError(e.message, '12345')
-  }
-})
+import { connection } from 'graphql-connection-resolver'
 
 export const ChatRoom = {
-  messages(parent, args, context) {
-    return resolveMessagesConnection({
-      first: args.first,
-      last: args.last,
-      before: args.before,
-      after: args.after,
-      chatRoom: parent.id,
-    })
-  },
+  messages: connection({
+    /**
+     * returns a list of the model with `parent`, `args`, `ctx`
+     * You must request one more than given by first and last.
+     * Inside the library, if nodes return the same number as the given `first` or `last`, the next page is considered to not exist.
+     * and if nodes return more than the given number, the next page is considered to exist.
+     */
+    async nodes(parent, args, ctx) {
+      return [
+        /* ... */
+      ]
+    },
+
+    /**
+     * Extract a string to be used as a cursor from node.
+     * It automatically performs base64 encoding and decoding inside,
+     * so just return plain text.
+     */ 
+    cursorFromNode(node) {
+      return node.createdAt.toISOString()
+    },
+  }),
 }
 ```
 
 ## Note
-- This library was created assuming that all fields in `Connection`, `Edge`, and `PageInfo` are required.
-
-  ```graphql
-  type ChatMessageConnection {
-    edges: [ChatMessageEdge!]!
-    pageInfo: PageInfo!
-  }
-
-  type ChatMessageEdge {
-    node: ChatMessage!
-    cursor: String!
-  }
-
-  type PageInfo {
-    hasPreviousPage: Boolean!
-    hasNextPage: Boolean!
-    startCursor: String!
-    endCursor: String!
-  }
-  ```
+- You must request one more than given by first and last. Inside the library, if nodes return the same number as the given `first` or `last`, the next page is considered to not exist, and if nodes return more than the given number, the next page is considered to exist.
 
   ```typescript
-  export interface PageInfo {
-    hasPreviousPage: boolean
-    hasNextPage: boolean
-    startCursor: string
-    endCursor: string
-  }
-
-  export interface Edge<Node> {
-    cursor: string
-    node: Node
-  }
-
-  export interface Connection<Node> {
-    edges: Array<Edge<Node>>
-    nodes: Array<Node>
-    pageInfo: PageInfo
-  }
-  ```
-- You must request one more than given by first and last. Inside the library, if nodes return the same number as the given number, there is no next page, and if nodes return more than the given number, the next page is considered to exist.
-
-  ```typescript
-  createConnectionResolver({
+  connection({
     async nodes(args) {
       const items = await fetchItems({
         /* ... */,
