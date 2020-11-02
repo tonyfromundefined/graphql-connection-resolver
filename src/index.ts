@@ -1,35 +1,23 @@
 import { Buffer } from 'buffer/'
 
-type ResolverTypeWrapper<T> = Promise<T> | T
-
-export interface Connection<Node> {
-  edges: Array<Edge<Node>>
-  nodes: Array<Node>
-  pageInfo: PageInfo
-}
-export interface Edge<Node> {
-  cursor: string
-  node: Node
-}
-export interface PageInfo {
-  hasPreviousPage: boolean
-  hasNextPage: boolean
-  startCursor: string | null
-  endCursor: string | null
-}
-
-type ConnectionArgs = {
-  first?: number | null
-  last?: number | null
-  after?: string | null
-  before?: string | null
-}
+import {
+  Connection,
+  ConnectionArgs,
+  PageInfo,
+  ResolverTypeWrapper,
+} from './types'
 
 export function connection<Parent, Args extends ConnectionArgs, Context, Node>({
   cursorFromNode: getCursorFromNode,
   nodes: getNodes,
 }: {
-  cursorFromNode: (node: Node) => string
+  cursorFromNode: (
+    node: Node,
+    nodeIndex: number,
+    parent: Parent,
+    args: Args,
+    context: Context
+  ) => string
   nodes: (parent: Parent, args: Args, context: Context) => Promise<Node[]>
 }): (
   parent: Parent,
@@ -75,9 +63,21 @@ export function connection<Parent, Args extends ConnectionArgs, Context, Node>({
       nodes = nodes.filter((_, i) => i < args.first!)
 
       const startCursor =
-        nodes.length > 0 ? encodeCursor(getCursorFromNode(nodes[0])) : null
+        nodes.length > 0
+          ? encodeCursor(getCursorFromNode(nodes[0], 0, parent, args, context))
+          : null
       const endCursor =
-        nodes.length > 0 ? encodeCursor(getCursorFromNode(last(nodes)!)) : null
+        nodes.length > 0
+          ? encodeCursor(
+              getCursorFromNode(
+                last(nodes)!,
+                nodes.length - 1,
+                parent,
+                args,
+                context
+              )
+            )
+          : null
 
       const pageInfo: PageInfo = {
         hasNextPage,
@@ -87,9 +87,11 @@ export function connection<Parent, Args extends ConnectionArgs, Context, Node>({
       }
 
       return {
-        edges: nodes.map((node) => ({
+        edges: nodes.map((node, nodeIndex) => ({
           node,
-          cursor: encodeCursor(getCursorFromNode(node)),
+          cursor: encodeCursor(
+            getCursorFromNode(node, nodeIndex, parent, args, context)
+          ),
         })),
         nodes,
         pageInfo,
@@ -103,9 +105,21 @@ export function connection<Parent, Args extends ConnectionArgs, Context, Node>({
       nodes = nodes.filter((_, i) => i < args.last!)
 
       const startCursor =
-        nodes.length > 0 ? encodeCursor(getCursorFromNode(nodes[0])) : null
+        nodes.length > 0
+          ? encodeCursor(getCursorFromNode(nodes[0], 0, parent, args, context))
+          : null
       const endCursor =
-        nodes.length > 0 ? encodeCursor(getCursorFromNode(last(nodes)!)) : null
+        nodes.length > 0
+          ? encodeCursor(
+              getCursorFromNode(
+                last(nodes)!,
+                nodes.length - 1,
+                parent,
+                args,
+                context
+              )
+            )
+          : null
 
       const pageInfo: PageInfo = {
         hasNextPage,
@@ -115,9 +129,11 @@ export function connection<Parent, Args extends ConnectionArgs, Context, Node>({
       }
 
       return {
-        edges: nodes.map((node) => ({
+        edges: nodes.map((node, nodeIndex) => ({
           node,
-          cursor: encodeCursor(getCursorFromNode(node)),
+          cursor: encodeCursor(
+            getCursorFromNode(node, nodeIndex, parent, args, context)
+          ),
         })),
         nodes,
         pageInfo,
@@ -136,6 +152,7 @@ export function connection<Parent, Args extends ConnectionArgs, Context, Node>({
     }
   }
 }
+
 
 export function encodeCursor(plaintext: string) {
   return Buffer.from(plaintext, 'utf-8').toString('base64')
